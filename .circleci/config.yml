@@ -1,0 +1,60 @@
+version: 2.0
+
+jobs:
+  create_docker_image:
+
+    docker:
+      - image: docker:18.09
+
+    working_directory: /build
+
+    steps:
+      - checkout:
+          path: /build
+
+      - setup_remote_docker:
+          docker_layer_caching: false
+          version: 18.06.0-ce
+
+      - run:
+          name: Build
+          command: |
+            cd /build
+            VERSION="$(cat VERSION)";
+            . ./build-docker-image.sh
+
+      - run:
+          name: Create Infraxys Runner Docker image
+          command: |
+            echo "disabled atm, also in push images"
+            cd /tmp/workspace;
+            VERSION="$(cat VERSION)";
+            cd build;
+            . ./build-infraxys-runner-image.sh "$VERSION";
+
+      - run:
+          name: Push Docker images
+          command: |
+            cd /tmp/workspace;
+            VERSION="$(cat VERSION)";
+            . build/push-docker-images.sh "$VERSION";
+
+workflows:
+  version: 2
+  build-dev:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only:
+                - master
+      - create_docker_image:
+          filters:  # using regex filters requires the entire branch to match
+            branches:
+              only:  # only branches matching the below regex filters will run
+                - master
+          requires:
+            - build
+          context: vars
+
+
